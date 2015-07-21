@@ -41,11 +41,10 @@ def get_owner(devpath):
 # !TODO:
 # merge chown with before_vm_start.py
 # maybe put it in hooks.py?
-def chown(vendorid, productid):
+def chown(busid, deviceid):
 
-    # remove the 0x from the vendor and product id
-    devid = vendorid[2:] + ':' + productid[2:]
-    command = ['lsusb', '-d', devid]
+    devid = busid + ':' + deviceid
+    command = ['lsusb', '-s', devid]
     retcode, out, err = hooking.execCmd(command, raw=True)
     if retcode != 0:
         sys.stderr.write('hostusb: cannot find usb device: %s\n' % devid)
@@ -72,15 +71,15 @@ if 'hostusb' in os.environ:
     try:
         regex = re.compile('^0x[\d,A-F,a-f]{4}$')
         for usb in os.environ['hostusb'].split('&'):
-            vendorid, productid = usb.split(':')
-            if len(regex.findall(vendorid)) != 1 or \
-                    len(regex.findall(productid)) != 1:
+            busid, deviceid = usb.split(':')
+            if len(regex.findall(busid)) != 1 or \
+                    len(regex.findall(deviceid)) != 1:
                 sys.stderr.write('hostusb after_vm_destroy: bad input, '
-                                 'expected 0x0000 format for vendor and '
-                                 'product id, input: %s:%s\n' %
-                                 (vendorid, productid))
+                                 'expected format for bus and '
+                                 'device, input: %s:%s\n' %
+                                 (busid, deviceid))
                 sys.exit(2)
-            chown(vendorid, productid)
+            chown(busid, deviceid)
 
     except:
         sys.stderr.write('hostusb after_vm_destroy: [unexpected error]: %s\n' %

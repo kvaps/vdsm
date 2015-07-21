@@ -23,15 +23,14 @@ add hosts usb device/s to VM:
 
 <hostdev mode='subsystem' type='usb'>
     <source>
-        <vendor id='0x1234'/>
-        <product id='0xbeef'/>
+        <address bus='1' device='3' />
     </source>
 </hostdev>
 
 syntax:
-    hostusb=0x1234:0xbeef&0x2222:0xabaa
+    hostusb=1-3&2-1
     i.e.
-    hostusb=VendorId:ProductId (can add more then one with '&' separator)
+    hostusb=Bus-Device (can add more then one with '&' separator)
 
 Note:
     The VM must be pinned to host and this hook will
@@ -60,11 +59,10 @@ def log_dev_owner(devpath, user, group):
 # !TODO:
 # merge chown with after_vm_destroy.py
 # maybe put it in hooks.py?
-def chown(vendorid, productid):
+def chown(busid, deviceid):
 
-    # remove the 0x from the vendor and product id
-    devid = vendorid[2:] + ':' + productid[2:]
-    command = ['lsusb', '-d', devid]
+    devid = busid + ':' + deviceid
+    command = ['lsusb', '-s', devid]
     retcode, out, err = hooking.execCmd(command, raw=True)
     if retcode != 0:
         sys.stderr.write('hostusb: cannot find usb device: %s\n' % devid)
@@ -92,7 +90,7 @@ def chown(vendorid, productid):
     log_dev_owner(devpath, stat.st_uid, stat.st_gid)
 
 
-def create_usb_device(domxml, vendorid, productid):
+def create_usb_device(domxml, busid, deviceid):
     hostdev = domxml.createElement('hostdev')
     hostdev.setAttribute('mode', 'subsystem')
     hostdev.setAttribute('type', 'usb')
@@ -100,34 +98,31 @@ def create_usb_device(domxml, vendorid, productid):
     source = domxml.createElement('source')
     hostdev.appendChild(source)
 
-    vendor = domxml.createElement('vendor')
-    vendor.setAttribute('id', vendorid)
-    source.appendChild(vendor)
-
-    product = domxml.createElement('product')
-    product.setAttribute('id', productid)
-    source.appendChild(product)
+    address = domxml.createElement('address')
+    address.setAttribute('bus', busid)
+    address.setAttribute('device', deviceid)
+    source.appendChild(address)
 
     return hostdev
 
 if 'hostusb' in os.environ:
     try:
-        regex = re.compile('^0x[\d,A-F,a-f]{4}$')
+        regex = re.compile('^[0-9]*$')
         domxml = hooking.read_domxml()
         devices = domxml.getElementsByTagName('devices')[0]
 
         for usb in os.environ['hostusb'].split('&'):
-            vendorid, productid = usb.split(':')
-            if len(regex.findall(vendorid)) != 1 or \
-                    len(regex.findall(productid)) != 1:
-                sys.stderr.write('hostusb: bad input, expected 0x0000 format '
-                                 'for vendor and product id, input: %s:%s\n' %
-                                 (vendorid, productid))
+            busid, deviceid = usb.split(':')
+            if len(regex.findall(busid)) != 1 or \
+                    len(regex.findall(deviceid)) != 1:
+                sys.stderr.write('hostusb: bad input, expected format '
+                                 'for bus and device, input: %s:%s\n' %
+                                 (busid, deviceid))
                 sys.exit(2)
 
-            hostdev = create_usb_device(domxml, vendorid, productid)
+            hostdev = create_usb_device(domxml, busid, deviceid)
             devices.appendChild(hostdev)
-            chown(vendorid, productid)
+            chown(busid, deviceid)
 
         hooking.write_domxml(domxml)
     except:
