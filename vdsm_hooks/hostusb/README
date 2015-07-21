@@ -11,15 +11,14 @@ add hosts usb device/s to VM:
 
 <hostdev mode='subsystem' type='usb'>
     <source>
-        <vendor id='0x1234'/>
-        <product id='0xbeef'/>
+        <address bus='1' device='3' />
     </source>
 </hostdev>
 
 syntax:
-    hostusb=0x1234:0xbeef&0x2222:0xabaa
+    hostusb=1:3&2:1
     i.e.
-    hostusb=VendorId:ProductId (can add more then one with '&' separator)
+    hostusb=Bus:Device (can add more then one with '&' separator)
 
 Note:
     The VM must be pinned to host and this hook will
